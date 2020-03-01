@@ -1,6 +1,9 @@
 # unknown
 a tool for putting docker based http servers behind nginx
 
+I do not know the name of this project yet.  The goal is "from docker to https
+in 60 seconds or less"
+
 # goals
 
 * minimal declarative syntax (basically bind **domain name** to **port number**, likely also include optional **path** and **environment variables**)

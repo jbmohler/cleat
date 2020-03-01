@@ -1,0 +1,11 @@
+FROM alpine:3.11
+
+RUN apk --no-cache add thttpd
+
+WORKDIR /var/www/http
+COPY mysite-root /var/www/http
+
+EXPOSE 8012
+
+ENTRYPOINT ["/usr/sbin/thttpd"]
+CMD ["-D", "-p", "8012", "-l", "/dev/stderr", "-d", "/var/www/http"]
