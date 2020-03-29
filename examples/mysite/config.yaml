@@ -1,12 +1,8 @@
-
-main-site:
-    server-name: mysite.us/
+mysite.us:
     image: mysite-static:latest
 
-flask-server:
-    server-name: mysite.us/flask
+mysite.us/flask:
     image: myflask:latest
 
-your-site:
-    server-name: yoursite.com
+yoursite.com:
     image: yourstatic:latest

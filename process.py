@@ -1,10 +1,24 @@
+import os
+import sys
+import re
+import itertools
 import argparse
+import yaml
 
+GENERATED = ".unknown"
 
-TEMPLATE_SITES_AVAILABLE = """
-server {
-    listen 443;
+TEMPLATE_PORT_LISTEN = """\
+    listen << PORT_80_443 >>;
     server_name << DOMAIN_NAME >>;
+"""
+
+TEMPLATE_WELLKNOWN_LOCATION = """\
+    location /.well-known/ {
+        root << UNKNOWN_ROOT >>/<< DOMAIN_NAME >>/.well-known/;
+    }
+"""
+
+TEMPLATE_SSL_CONFIG = """\
     add_header Strict-Transport-Security max-age=31536000;
 
     ssl on;
@@ -16,11 +30,9 @@ server {
     ssl_session_cache shared:SSL:50m;
     ssl_dhparam myssldir/dhparam4096.pem;
     ssl_prefer_server_ciphers on;
+"""
 
-    location /.well-known/ {
-        root << UNKNOWN_ROOT >>/<< DOMAIN_NAME >>/.well-known/;
-    }
-
+TEMPLATE_LOCATION_CHUNK = """\
     location / {
         proxy_set_header    Host $host;
         proxy_set_header    X-Real-IP $remote_addr;
@@ -30,8 +42,80 @@ server {
         proxy_pass          http://localhost:<< PORT >>;
         proxy_read_timeout  90;
     }
-}
 """
+
+def _templated(template, site, path=None, **kwargs):
+    def replace(match):
+        print(f"Template match: {match.group(1)} not found", file=sys.stderr)
+        return match.group(0)
+
+    myrepls = re.sub('<< ([_A-Z0-9]+) >>', replace, template)
+    return myrepls
+
+
+def grouped_sites(config):
+    domain = lambda url: url.split('/', 1)[0]
+
+    sortlist = sorted(config.items())
+    grouped = itertools.groupby(sortlist, key=lambda pair: domain(pair[0]))
+    yield from grouped
+
+
+def generate_configuration(filename):
+    configdir = os.path.dirname(os.path.realpath(filename))
+
+    with open(filename, 'r') as stream:
+        config = yaml.safe_load(stream)
+
+    for site, paths in grouped_sites(config):
+        port80_server = []
+        port443_server = []
+
+        port80_server.append(_templated(TEMPLATE_PORT_LISTEN, site,
+            port_80_443=80))
+
+        port443_server.append(_templated(TEMPLATE_PORT_LISTEN, site,
+            port_80_443=443))
+        port443_server.append(_templated(TEMPLATE_SSL_CONFIG, site))
+
+        for path in paths:
+            port443_server.append(_templated(TEMPLATE_LOCATION_CHUNK, site))
+
+        port80_server = ["server {"] + port80_server + ["}\n"]
+        port443_server = ["server {"] + port443_server + ["}\n"]
+
+        confdir = os.path.join(configdir, GENERATED, 'nginx')
+        if not os.path.exists(confdir):
+            os.makedirs(confdir)
+        outfile_site = os.path.join(confdir, site+'.conf')
+        with open(outfile_site, 'w') as conf:
+            conf.write("\n".join(port80_server))
+            conf.write("\n".join(port443_server))
+
+
+def generate_configurationi_acme(filename):
+    configdir = os.path.dirname(os.path.realpath(filename))
+
+    with open(filename, 'r') as stream:
+        config = yaml.safe_load(stream)
+
+    for site, paths in grouped_sites(config):
+        port80_server = []
+        port443_server = []
+
+        port80_server.append(_templated(TEMPLATE_PORT_LISTEN, site,
+            port_80_443=80))
+        port80_server.append(_templated(TEMPLATE_WELLKNOWN_LOCATION, site))
+
+        port80_server = ["server {"] + port80_server + ["}\n"]
+
+        confdir = os.path.join(configdir, GENERATED, 'nginx-acme')
+        if not os.path.exists(confdir):
+            os.makedirs(confdir)
+        outfile_site = os.path.join(confdir, site+'.conf')
+        with open(outfile_site, 'w') as conf:
+            conf.write("\n".join(port80_server))
+
 
 TEMPLATE_SERVICE = """
 [Unit]
@@ -49,14 +133,11 @@ WantedBy=local.target
 """
 
 
-def generate_sites_available():
-    pass
-
 def generate_systemd_services():
 
     pass
 
-def initialize_https():
+def initialize_https(configdir):
     gen_key_script = """
 openssl genrsa 4096 > unknown-root/account.key
 openssl dhparam -out unknown-root/dhparam4096.pem 4096
@@ -91,4 +172,26 @@ def restart(service):
 
 
 if __name__ == '__main__':
-    pass
+    parser = argparse.ArgumentParser(description="<unknown>: from docker to https")
+    subparsers = parser.add_subparsers(dest='operation')
+
+    setup = subparsers.add_parser('setup', help="prepare configuration directory and SSL keys")
+    setup.add_argument('-f', '--file', required=True, help="configuration yaml file")
+
+    run = subparsers.add_parser('run', help="run the server")
+    run.add_argument('-d', '--dir', required=True, help="configuration directory")
+
+    ssl_update = subparsers.add_parser('ssl-update', help="refresh the https from acme")
+
+    args = parser.parse_args()
+
+    if args.operation == None:
+        parser.print_help()
+    elif args.operation == 'setup':
+        generate_configuration(args.file)
+        generate_configuration_acme(args.file)
+        initialize_https(configdir)
+    elif args.operation == 'run_server':
+        run_server(args.dir)
+    elif args.operation == 'ssl-update':
+        refresh_https()
