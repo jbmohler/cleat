@@ -6,11 +6,11 @@ docker build \
 	.
 
 docker build \
-	--file Dockerfile.yoursite-root \
-	--tag yoursite-static:latest \
+	--file Dockerfile.hello-flask \
+	--tag myflask:latest \
 	.
 
 docker build \
-	--file Dockerfile.hello-flask \
-	--tag myflask:latest \
+	--file Dockerfile.yoursite-root \
+	--tag yoursite-static:latest \
 	.

@@ -5,4 +5,4 @@ mysite.us/flask:
     image: myflask:latest
 
 yoursite.com:
-    image: yourstatic:latest
+    image: yoursite-static:latest
