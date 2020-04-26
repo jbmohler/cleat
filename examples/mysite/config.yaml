@@ -1,8 +1,11 @@
 mysite.us:
     image: mysite-static:latest
+    port: 8012
 
 mysite.us/flask:
     image: myflask:latest
+    port: 5000
 
 yoursite.com:
     image: yoursite-static:latest
+    port: 8014

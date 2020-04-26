@@ -39,7 +39,8 @@ TEMPLATE_LOCATION_CHUNK = """\
         proxy_set_header    X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header    X-Forwarded-Proto $scheme;
 
-        proxy_pass          http://localhost:<< PORT >>;
+        proxy_pass          http://<< HOSTNAME >>:<< PORT >>;
+        << REWRITE >>
         proxy_read_timeout  90;
     }
 """
@@ -80,7 +81,7 @@ def grouped_sites(config):
     yield from grouped
 
 
-def generate_configuration(filename):
+def generate_configuration(filename, ssl=True, plain=False):
     configdir = os.path.dirname(os.path.realpath(filename))
 
     with open(filename, "r") as stream:
@@ -97,7 +98,21 @@ def generate_configuration(filename):
         port443_server.append(_templated(TEMPLATE_SSL_CONFIG, site))
 
         for path in paths:
-            port443_server.append(_templated(TEMPLATE_LOCATION_CHUNK, site, path=path))
+            hostname = "unknown-"+re.sub("[^a-zA-Z0-9]", "_", path[0])
+
+            url = path[0]
+            domain, basepath = (url.split("/", 1) if '/' in url else (url, None))
+
+            if basepath not in [None, ""]:
+                rewrite = f"rewrite /{basepath}/(.*) /$1  break;"
+            else:
+                rewrite = ""
+
+            if plain:
+                port80_server.append(_templated(TEMPLATE_LOCATION_CHUNK, site,
+                    path=path, hostname=hostname, rewrite=rewrite))
+            port443_server.append(_templated(TEMPLATE_LOCATION_CHUNK, site,
+                path=path, hostname=hostname, rewrite=rewrite))
 
         port80_server = ["server {"] + port80_server + ["}\n"]
         port443_server = ["server {"] + port443_server + ["}\n"]
@@ -107,7 +122,8 @@ def generate_configuration(filename):
         outfile_site = os.path.join(confdir, site + ".conf")
         with open(outfile_site, "w") as conf:
             conf.write("\n".join(port80_server))
-            conf.write("\n".join(port443_server))
+            if ssl:
+                conf.write("\n".join(port443_server))
 
 
 def generate_configuration_acme(filename):
@@ -198,16 +214,6 @@ def run_dev(filename):
 
     runname = "abcd"
 
-    args = ["docker", "run", "--rm", "-d", 
-            "--name",      "unknown-nginx-server",
-        "-l", runname,
-        "-v",
-        f"{confdir}:/etc/nginx/conf.d",
-        "nginx"]
-
-    print(' '.join(args))
-    subprocess.run(args)
-
     for url, siteconfig in config.items():
         # run a docker container for each backing server
         print(siteconfig['image'])
@@ -217,10 +223,25 @@ def run_dev(filename):
         args = ["docker", "run", "--rm", "-d", 
             "-l", runname,
             "--name", name,
+            "--hostname", name,
+            "--network", "mynet",
             siteconfig["image"]]
         print(' '.join(args))
 
         subprocess.run(args)
+
+    args = ["docker", "run", "--rm", "-d", 
+            "--name",      "unknown-nginx-server",
+            "-p", "80:80",
+            "--network", "mynet",
+        "-l", runname,
+        "-v",
+        f"{confdir}:/etc/nginx/conf.d",
+        "nginx"]
+
+    print(' '.join(args))
+    subprocess.run(args)
+
 
     print(f"services running:  stop with\n"
     f"docker stop `docker ps --filter \"label={runname}\" -q `")
@@ -246,7 +267,7 @@ if __name__ == "__main__":
         parser.print_help()
     elif args.operation == "setup":
         configdir = os.path.dirname(os.path.realpath(args.file))
-        generate_configuration(args.file)
+        generate_configuration(args.file, ssl=False, plain=True)
         generate_configuration_acme(args.file)
         initialize_https(configdir)
     elif args.operation == "run":
