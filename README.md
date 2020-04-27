@@ -9,8 +9,35 @@ to https in 60 seconds or less"
 
 * minimal declarative syntax (basically bind **domain name** to **port number**, likely also include optional **path** and **environment variables**)
 * takes care of SSL & certificates
+* define multiple domain names and multiple back-ends per domain in the configuration file.
 * serves only https
 * prefer docker services
+
+# aspirational usage
+
+Define your configuration in one easy config.yaml.
+
+```sh
+cleat run config.yaml
+```
+
+If you want to just prepare the setup.
+
+```sh
+cleat setup config.yaml
+```
+
+To run a development server.
+
+```sh
+cleat run config.yaml --no-ssh --plain
+```
+
+To update the SSL certificates (from letsencrypt).
+
+```sh
+cleat update-ssl config.yaml
+```
 
 # implemenation sketch
 
