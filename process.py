@@ -94,14 +94,16 @@ def generate_configuration(filename, ssl=True, plain=False):
 
         port80_server.append(_templated(TEMPLATE_PORT_LISTEN, site, port_80_443=80))
 
-        port443_server.append(_templated(TEMPLATE_PORT_LISTEN, site, port_80_443="443 ssl"))
+        port443_server.append(
+            _templated(TEMPLATE_PORT_LISTEN, site, port_80_443="443 ssl")
+        )
         port443_server.append(_templated(TEMPLATE_SSL_CONFIG, site))
 
         for path in paths:
-            hostname = "unknown-"+re.sub("[^a-zA-Z0-9]", "_", path[0])
+            hostname = "unknown-" + re.sub("[^a-zA-Z0-9]", "_", path[0])
 
             url = path[0]
-            domain, basepath = (url.split("/", 1) if '/' in url else (url, None))
+            domain, basepath = url.split("/", 1) if "/" in url else (url, None)
 
             if basepath not in [None, ""]:
                 rewrite = f"rewrite /{basepath}/(.*) /$1  break;"
@@ -109,10 +111,24 @@ def generate_configuration(filename, ssl=True, plain=False):
                 rewrite = ""
 
             if plain:
-                port80_server.append(_templated(TEMPLATE_LOCATION_CHUNK, site,
-                    path=path, hostname=hostname, rewrite=rewrite))
-            port443_server.append(_templated(TEMPLATE_LOCATION_CHUNK, site,
-                path=path, hostname=hostname, rewrite=rewrite))
+                port80_server.append(
+                    _templated(
+                        TEMPLATE_LOCATION_CHUNK,
+                        site,
+                        path=path,
+                        hostname=hostname,
+                        rewrite=rewrite,
+                    )
+                )
+            port443_server.append(
+                _templated(
+                    TEMPLATE_LOCATION_CHUNK,
+                    site,
+                    path=path,
+                    hostname=hostname,
+                    rewrite=rewrite,
+                )
+            )
 
         port80_server = ["server {"] + port80_server + ["}\n"]
         port443_server = ["server {"] + port443_server + ["}\n"]
@@ -203,6 +219,7 @@ def restart(service):
     os.system("service << >> stop")
     os.system("service << >> start")
 
+
 def run_dev(filename):
     # run all the dockers in a non-ssl env for testing
 
@@ -216,35 +233,55 @@ def run_dev(filename):
 
     for url, siteconfig in config.items():
         # run a docker container for each backing server
-        print(siteconfig['image'])
+        print(siteconfig["image"])
 
-        name = "unknown-"+re.sub("[^a-zA-Z0-9]", "_", url)
+        name = "unknown-" + re.sub("[^a-zA-Z0-9]", "_", url)
 
-        args = ["docker", "run", "--rm", "-d", 
-            "-l", runname,
-            "--name", name,
-            "--hostname", name,
-            "--network", "mynet",
-            siteconfig["image"]]
-        print(' '.join(args))
+        args = [
+            "docker",
+            "run",
+            "--rm",
+            "-d",
+            "-l",
+            runname,
+            "--name",
+            name,
+            "--hostname",
+            name,
+            "--network",
+            "mynet",
+            siteconfig["image"],
+        ]
+        print(" ".join(args))
 
         subprocess.run(args)
 
-    args = ["docker", "run", "--rm", "-d", 
-            "--name",      "unknown-nginx-server",
-            "-p", "80:80",
-            "--network", "mynet",
-        "-l", runname,
+    args = [
+        "docker",
+        "run",
+        "--rm",
+        "-d",
+        "--name",
+        "unknown-nginx-server",
+        "-p",
+        "80:80",
+        "--network",
+        "mynet",
+        "-l",
+        runname,
         "-v",
         f"{confdir}:/etc/nginx/conf.d",
-        "nginx"]
+        "nginx",
+    ]
 
-    print(' '.join(args))
+    print(" ".join(args))
     subprocess.run(args)
 
+    print(
+        f"services running:  stop with\n"
+        f'docker stop `docker ps --filter "label={runname}" -q `'
+    )
 
-    print(f"services running:  stop with\n"
-    f"docker stop `docker ps --filter \"label={runname}\" -q `")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="<unknown>: from docker to https")
@@ -257,7 +294,7 @@ if __name__ == "__main__":
 
     run = subparsers.add_parser("run", help="run the server")
     run.add_argument("-f", "--file", required=True, help="configuration yaml file")
-    #run.add_argument("-d", "--dir", required=True, help="configuration directory")
+    # run.add_argument("-d", "--dir", required=True, help="configuration directory")
 
     ssl_update = subparsers.add_parser("ssl-update", help="refresh the https from acme")
 

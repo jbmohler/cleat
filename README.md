@@ -1,8 +1,9 @@
 # unknown
-a tool for putting docker based http servers behind nginx
 
-I do not know the name of this project yet.  The goal is "from docker to https
-in 60 seconds or less"
+You have docker containers with HTTP servers.  You want them exposed on the open web.  Here is a tool that does just that with SSL and a production ready reverse proxy.  This goal is delivered by using letsencrypt and nginx.
+
+This project is heading for a new name of `cleat`. The goal is "from docker
+to https in 60 seconds or less"
 
 # goals
 
