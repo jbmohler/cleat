@@ -4,7 +4,6 @@ import re
 import random
 import subprocess
 import itertools
-import argparse
 import yaml
 
 GENERATED = ".cleat"
@@ -27,7 +26,7 @@ TEMPLATE_SSL_CONFIG = """\
     ssl_certificate_key << DOMAIN_KEY >>;
     ssl_session_timeout 5m;
     ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA:ECDHE-ECDSA-AES128-SHA256:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES256-SHA256";      
+    ssl_ciphers "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA:ECDHE-ECDSA-AES128-SHA256:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES256-SHA256";
     ssl_session_cache shared:SSL:50m;
     ssl_dhparam << CLEAT_ROOT >>/dhparam4096.pem;
     ssl_prefer_server_ciphers on;
@@ -151,7 +150,6 @@ def generate_configuration_acme(filename):
 
     for site, paths in grouped_sites(config):
         port80_server = []
-        port443_server = []
 
         port80_server.append(_templated(TEMPLATE_PORT_LISTEN, site, port_80_443=80))
         port80_server.append(_templated(TEMPLATE_WELLKNOWN_LOCATION, site))
@@ -230,11 +228,11 @@ def run_server(filename):
         config = yaml.safe_load(stream)
     confdir = os.path.join(configdir, GENERATED, "nginx", "conf.d")
 
-    alpha = 'abcdefghijklmnopqrstuvwxyz0123456789'
-    runname = ''.join([random.choice(alpha) for x in range(8)])
+    alpha = "abcdefghijklmnopqrstuvwxyz0123456789"
+    runname = "".join([random.choice(alpha) for x in range(8)])
 
     args = ["docker", "network", "create", f"cleat_{runname}"]
-    #print(" ".join(args))
+    # print(" ".join(args))
     subprocess.run(args)
 
     for url, siteconfig in config.items():
@@ -257,7 +255,7 @@ def run_server(filename):
             f"cleat_{runname}",
             siteconfig["image"],
         ]
-        #print(" ".join(args))
+        # print(" ".join(args))
 
         subprocess.run(args)
 
@@ -279,53 +277,17 @@ def run_server(filename):
         "nginx",
     ]
 
-    #print(" ".join(args))
+    # print(" ".join(args))
     subprocess.run(args)
 
-    print(
-        "services running:  stop with\n"
-        f"cleat stop {runname}"
-    )
+    print("services running:  stop with\n" f"cleat stop {runname}")
+
 
 def stop_server(runname):
-    cmd = f"docker stop `docker ps --filter \"label={runname}\" -q `"
-    #print(cmd)
+    cmd = f'docker stop `docker ps --filter "label={runname}" -q `'
+    # print(cmd)
     subprocess.run(cmd, shell=True)
 
     args = ["docker", "network", "remove", f"cleat_{runname}"]
-    #print(" ".join(args))
+    # print(" ".join(args))
     subprocess.run(args)
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="cleat: from docker to https")
-    subparsers = parser.add_subparsers(dest="operation")
-
-    setup = subparsers.add_parser(
-        "setup", help="prepare configuration directory and SSL keys"
-    )
-    setup.add_argument("-f", "--file", required=True, help="configuration yaml file")
-
-    run = subparsers.add_parser("run", help="run the server")
-    run.add_argument("-f", "--file", required=True, help="configuration yaml file")
-    # run.add_argument("-d", "--dir", required=True, help="configuration directory")
-
-    stop = subparsers.add_parser("stop", help="stop the server")
-    stop.add_argument("runname", help="the runname to stop")
-
-    ssl_update = subparsers.add_parser("ssl-update", help="refresh the https from acme")
-
-    args = parser.parse_args()
-
-    if args.operation == None:
-        parser.print_help()
-    elif args.operation == "setup":
-        configdir = os.path.dirname(os.path.realpath(args.file))
-        generate_configuration(args.file, ssl=False, plain=True)
-        generate_configuration_acme(args.file)
-        initialize_https(configdir)
-    elif args.operation == "run":
-        run_server(args.file)
-    elif args.operation == "stop":
-        stop_server(args.runname)
-    elif args.operation == "ssl-update":
-        refresh_https()
