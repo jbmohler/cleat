@@ -19,7 +19,7 @@ def main():
     stop = subparsers.add_parser("stop", help="stop the server")
     stop.add_argument("runname", help="the runname to stop")
 
-    ssl_update = subparsers.add_parser("ssl-update", help="refresh the https from acme")
+    ssl_update = subparsers.add_parser("update-ssl", help="refresh the https from acme")
     ssl_update.add_argument(
         "-f", "--file", required=True, help="configuration yaml file"
     )
@@ -29,13 +29,12 @@ def main():
     if args.operation == None:
         parser.print_help()
     elif args.operation == "setup":
-        configdir = os.path.dirname(os.path.realpath(args.file))
         core.generate_configuration(args.file, ssl=False, plain=True)
         core.generate_configuration_acme(args.file)
-        core.initialize_https(configdir)
+        core.initialize_https(args.file)
     elif args.operation == "run":
         core.run_server(args.file)
     elif args.operation == "stop":
         core.stop_server(args.runname)
-    elif args.operation == "ssl-update":
-        core.refresh_https()
+    elif args.operation == "update-ssl":
+        core.refresh_https(args.file)

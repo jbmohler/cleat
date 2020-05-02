@@ -15,7 +15,7 @@ TEMPLATE_PORT_LISTEN = """\
 
 TEMPLATE_WELLKNOWN_LOCATION = """\
     location /.well-known/ {
-        root << CLEAT_ROOT >>/<< DOMAIN_NAME >>/.well-known/;
+        root /usr/share/nginx/<< DOMAIN_NAME >>/;
     }
 """
 
@@ -185,33 +185,109 @@ def generate_systemd_services():
     pass
 
 
-def initialize_https(configdir):
-    gen_key_script = """
-openssl genrsa 4096 > cleat-root/account.key
-openssl dhparam -out cleat-root/dhparam4096.pem 4096
+def initialize_https(filename):
+    singleton_script = """
+openssl genrsa 4096 > account.key
+openssl dhparam -out dhparam4096.pem 4096
+"""
 
-openssl genrsa 4096 > cleat-root/<< DOMAIN_NAME >>.key
+    with open(filename, "r") as stream:
+        config = yaml.safe_load(stream)
+    configdir = os.path.dirname(os.path.realpath(filename))
+    httpsdir = os.path.join(configdir, GENERATED, "https")
+
+    if not os.path.exists(httpsdir):
+        os.mkdir(httpsdir)
+    os.chdir(httpsdir)
+
+    base_file_exists = lambda fn: os.path.exists(os.path.join(fn))
+    if not base_file_exists("account.key") and not base_file_exists("dhparam4096.pem"):
+        subprocess.run(singleton_script, shell=True)
+
+    gen_key_script = """
+openssl genrsa 4096 > << DOMAIN_NAME >>.key
 openssl req \
         -new \
         -sha256 \
-        -key ./cleat-root/<< DOMAIN_NAME >>.key \
+        -key << DOMAIN_NAME >>.key \
         -subj "/" \
         -reqexts SAN \
         -config <(cat /etc/ssl/openssl.cnf <(printf "[SAN]\nsubjectAltName=DNS:<< DOMAIN_NAME >>")) \
-        > ./cleat-root/<< DOMAIN_NAME >>.csr
+        > << DOMAIN_NAME >>.csr
 """
 
+    for site, paths in grouped_sites(config):
+        print(site)
+        gkey = _templated(gen_key_script, site)
+        subprocess.run(gkey, shell=True, executable="/bin/bash")
 
-def refresh_https():
+    curl_cross = "curl https://letsencrypt.org/certs/lets-encrypt-x3-cross-signed.pem -o ./lets-encrypt-x3-cross-signed.pem"
+    subprocess.run(curl_cross, shell=True)
+
+
+def _start_acme_server(confdir, httpsdir):
+    alpha = "abcdefghijklmnopqrstuvwxyz0123456789"
+    runname = "".join([random.choice(alpha) for x in range(8)])
+
+    args = [
+        "docker",
+        "run",
+        "--rm",
+        "-d",
+        "--name",
+        "cleat-nginx-server",
+        "-p",
+        "80:80",
+        "-l",
+        runname,
+        "-v",
+        f"{confdir}:/etc/nginx/conf.d",
+        "-v",
+        f"{httpsdir}:/usr/share/nginx/",
+        "nginx",
+    ]
+
+    # print(" ".join(args))
+    subprocess.run(args)
+    return runname
+
+
+def _stop_acme_server(runname):
+    cmd = f'docker stop `docker ps --filter "label={runname}" -q `'
+    # print(cmd)
+    subprocess.run(cmd, shell=True)
+
+
+def refresh_https(filename):
     re_up_script = """
-python acme_tiny.py --account-key ./account.key --csr ./<< DOMAIN_NAME >>.csr --acme-dir /usr/share/nginx/<< DOMAIN_NAME >>/.well-known/acme-challenge > ./signed-<< DOMAIN_NAME >>.crt
-# wget https://letsencrypt.org/certs/lets-encrypt-x3-cross-signed.pem -O ./lets-encrypt-x3-cross-signed.pem
+python acme_tiny.py \
+        --account-key ./account.key \
+        --csr ./<< DOMAIN_NAME >>.csr \
+        --acme-dir /usr/share/nginx/<< DOMAIN_NAME >>/.well-known/acme-challenge \
+                > ./signed-<< DOMAIN_NAME >>.crt
 cat signed-<< DOMAIN_NAME >>.crt lets-encrypt-x3-cross-signed.pem > chained-<< DOMAIN_NAME >>.pem
 """
 
-    "service nginx restart"
+    with open(filename, "r") as stream:
+        config = yaml.safe_load(stream)
+    configdir = os.path.dirname(os.path.realpath(filename))
+    httpsdir = os.path.join(configdir, GENERATED, "https")
+    confdir = os.path.join(configdir, GENERATED, "nginx-acme")
 
-    pass
+    if not os.path.exists(httpsdir):
+        os.mkdir(httpsdir)
+    os.chdir(httpsdir)
+
+    runname = _start_acme_server(confdir, httpsdir)
+
+    for site, paths in grouped_sites(config):
+        well_known = os.path.join(httpsdir, site)
+        if not os.path.exists(well_known):
+            os.makedirs(well_known)
+        gkey = _templated(re_up_script, site)
+        subprocess.run(gkey, shell=True)
+
+    _stop_acme_server(runname)
 
 
 def restart(service):
