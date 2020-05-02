@@ -29,7 +29,7 @@ def main():
     if args.operation == None:
         parser.print_help()
     elif args.operation == "setup":
-        core.generate_configuration(args.file, ssl=False, plain=True)
+        core.generate_configuration(args.file, ssl=True, plain=False)
         core.generate_configuration_acme(args.file)
         core.initialize_https(args.file)
     elif args.operation == "run":

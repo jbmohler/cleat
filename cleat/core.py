@@ -22,8 +22,8 @@ TEMPLATE_WELLKNOWN_LOCATION = """\
 TEMPLATE_SSL_CONFIG = """\
     add_header Strict-Transport-Security max-age=31536000;
 
-    ssl_certificate << DOMAIN_PEM >>;
-    ssl_certificate_key << DOMAIN_KEY >>;
+    ssl_certificate << CLEAT_ROOT >>/chained-<< DOMAIN_NAME >>.pem;
+    ssl_certificate_key << CLEAT_ROOT >>/<< DOMAIN_NAME >>.key;
     ssl_session_timeout 5m;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA:ECDHE-ECDSA-AES128-SHA256:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES256-SHA256";
@@ -51,8 +51,6 @@ def _templated(template, site, path=None, **kwargs):
 
     values["DOMAIN_NAME"] = site
     values["CLEAT_ROOT"] = "/etc/nginx/cleat"
-    values["DOMAIN_PEM"] = f"/etc/nginx/cleat/{site}/site.pem"
-    values["DOMAIN_KEY"] = f"/etc/nginx/cleat/{site}/site.key"
     if path != None:
         segs = path[0].split("/", 1)
         if len(segs) == 1:
@@ -87,6 +85,7 @@ def generate_configuration(filename, ssl=True, plain=False):
     with open(filename, "r") as stream:
         config = yaml.safe_load(stream)
     confdir = os.path.join(configdir, GENERATED, "nginx", "conf.d")
+    httpsdir = os.path.join(configdir, GENERATED, "https")
 
     for site, paths in grouped_sites(config):
         port80_server = []
@@ -260,10 +259,10 @@ def _stop_acme_server(runname):
 
 def refresh_https(filename):
     re_up_script = """
-python acme_tiny.py \
+python << ACME_DIR >>/acme_tiny.py \
         --account-key ./account.key \
         --csr ./<< DOMAIN_NAME >>.csr \
-        --acme-dir /usr/share/nginx/<< DOMAIN_NAME >>/.well-known/acme-challenge \
+        --acme-dir << HTTPSDIR >>/<< DOMAIN_NAME >>/.well-known/acme-challenge \
                 > ./signed-<< DOMAIN_NAME >>.crt
 cat signed-<< DOMAIN_NAME >>.crt lets-encrypt-x3-cross-signed.pem > chained-<< DOMAIN_NAME >>.pem
 """
@@ -274,6 +273,11 @@ cat signed-<< DOMAIN_NAME >>.crt lets-encrypt-x3-cross-signed.pem > chained-<< D
     httpsdir = os.path.join(configdir, GENERATED, "https")
     confdir = os.path.join(configdir, GENERATED, "nginx-acme")
 
+    x1 = os.path.abspath(__file__)
+    x2 = os.path.dirname(x1)
+    x3 = os.path.dirname(x2)
+    acmedir = os.path.join(x3, "acme")
+
     if not os.path.exists(httpsdir):
         os.mkdir(httpsdir)
     os.chdir(httpsdir)
@@ -281,10 +285,10 @@ cat signed-<< DOMAIN_NAME >>.crt lets-encrypt-x3-cross-signed.pem > chained-<< D
     runname = _start_acme_server(confdir, httpsdir)
 
     for site, paths in grouped_sites(config):
-        well_known = os.path.join(httpsdir, site)
+        well_known = os.path.join(httpsdir, site, ".well-known", "acme-challenge")
         if not os.path.exists(well_known):
             os.makedirs(well_known)
-        gkey = _templated(re_up_script, site)
+        gkey = _templated(re_up_script, site, acme_dir=acmedir, httpsdir=httpsdir)
         subprocess.run(gkey, shell=True)
 
     _stop_acme_server(runname)
@@ -302,6 +306,7 @@ def run_server(filename):
 
     with open(filename, "r") as stream:
         config = yaml.safe_load(stream)
+    httpsdir = os.path.join(configdir, GENERATED, "https")
     confdir = os.path.join(configdir, GENERATED, "nginx", "conf.d")
 
     alpha = "abcdefghijklmnopqrstuvwxyz0123456789"
@@ -344,10 +349,14 @@ def run_server(filename):
         "cleat-nginx-server",
         "-p",
         "80:80",
+        "-p",
+        "443:443",
         "--network",
         f"cleat_{runname}",
         "-l",
         runname,
+        "-v",
+        f"{httpsdir}:/etc/nginx/cleat",
         "-v",
         f"{confdir}:/etc/nginx/conf.d",
         "nginx",
