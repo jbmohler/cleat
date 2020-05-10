@@ -312,7 +312,9 @@ def run_server(filename):
     alpha = "abcdefghijklmnopqrstuvwxyz0123456789"
     runname = "".join([random.choice(alpha) for x in range(8)])
 
-    args = ["docker", "network", "create", f"cleat_{runname}"]
+    subnet = "172.20.0.0/16"
+
+    args = ["docker", "network", "create", "--subnet", subnet, f"cleat_{runname}"]
     # print(" ".join(args))
     subprocess.run(args)
 
@@ -321,21 +323,24 @@ def run_server(filename):
 
         name = "cleat-" + re.sub("[^a-zA-Z0-9]", "_", url)
 
-        args = [
-            "docker",
-            "run",
-            "--rm",
-            "-d",
-            "-l",
-            runname,
-            "--name",
-            name,
-            "--hostname",
-            name,
-            "--network",
-            f"cleat_{runname}",
-            siteconfig["image"],
-        ]
+        envs = []
+        envconfig = siteconfig.get("environment", {})
+        for k, v in envconfig.items():
+            envs += ["-e", f"{k}={v}"]
+
+        args = (
+            ["docker", "run", "--rm", "-d", "-l", runname]
+            + envs
+            + [
+                "--name",
+                name,
+                "--hostname",
+                name,
+                "--network",
+                f"cleat_{runname}",
+                siteconfig["image"],
+            ]
+        )
         # print(" ".join(args))
 
         subprocess.run(args)
