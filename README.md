@@ -39,6 +39,8 @@ mysite.us/app1:
 	environment:
 		DBURL: postgresql://user:password@myhost/db
 		CONFIG_VAR1: fast-mode
+	mounts:
+		/path/to/dir: /container/dir
 ```
 
 Run the server with.

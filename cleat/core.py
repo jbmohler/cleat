@@ -328,9 +328,15 @@ def run_server(filename):
         for k, v in envconfig.items():
             envs += ["-e", f"{k}={v}"]
 
+        mounts = []
+        mountmap = siteconfig.get("mounts", {})
+        for k, v in mountmap.items():
+            mounts += ["-v", f"{k}:{v}"]
+
         args = (
             ["docker", "run", "--rm", "-d", "-l", runname]
             + envs
+            + mounts
             + [
                 "--name",
                 name,
