@@ -14,6 +14,14 @@ def main():
 
     run = subparsers.add_parser("run", help="run the server")
     run.add_argument("-f", "--file", required=True, help="configuration yaml file")
+    run.add_argument(
+        "-d",
+        "--dry_run",
+        required=False,
+        default=False,
+        action="store_true",
+        help="print docker commands to start server rather than execute them",
+    )
     # run.add_argument("-d", "--dir", required=True, help="configuration directory")
 
     stop = subparsers.add_parser("stop", help="stop the server")
@@ -33,7 +41,7 @@ def main():
         core.generate_configuration_acme(args.file)
         core.initialize_https(args.file)
     elif args.operation == "run":
-        core.run_server(args.file)
+        core.run_server(args.file, args.dry_run)
     elif args.operation == "stop":
         core.stop_server(args.runname)
     elif args.operation == "update-ssl":

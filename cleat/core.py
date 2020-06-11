@@ -1,6 +1,7 @@
 import os
 import sys
 import re
+import glob
 import random
 import subprocess
 import itertools
@@ -84,8 +85,12 @@ def generate_configuration(filename, ssl=True, plain=False):
 
     with open(filename, "r") as stream:
         config = yaml.safe_load(stream)
-    confdir = os.path.join(configdir, GENERATED, "nginx", "conf.d")
     httpsdir = os.path.join(configdir, GENERATED, "https")
+    confdir = os.path.join(configdir, GENERATED, "nginx", "conf.d")
+
+    # Original list of conf files, clean up extras after the fact.
+    conf_files = glob.glob(os.path.join(confdir, "*.conf"))
+    generated = []
 
     for site, paths in grouped_sites(config):
         port80_server = []
@@ -139,6 +144,11 @@ def generate_configuration(filename, ssl=True, plain=False):
             conf.write("\n".join(port80_server))
             if ssl:
                 conf.write("\n".join(port443_server))
+        generated.append(outfile_site)
+
+    for extra in set(conf_files).difference(generated):
+        print(f"Removing extra {extra}")
+        os.unlink(extra)
 
 
 def generate_configuration_acme(filename):
@@ -185,11 +195,6 @@ def generate_systemd_services():
 
 
 def initialize_https(filename):
-    singleton_script = """
-openssl genrsa 4096 > account.key
-openssl dhparam -out dhparam4096.pem 4096
-"""
-
     with open(filename, "r") as stream:
         config = yaml.safe_load(stream)
     configdir = os.path.dirname(os.path.realpath(filename))
@@ -199,8 +204,15 @@ openssl dhparam -out dhparam4096.pem 4096
         os.mkdir(httpsdir)
     os.chdir(httpsdir)
 
+    singleton_script = """
+openssl genrsa 4096 > account.key
+openssl dhparam -out dhparam4096.pem 4096
+"""
+
     base_file_exists = lambda fn: os.path.exists(os.path.join(fn))
-    if not base_file_exists("account.key") and not base_file_exists("dhparam4096.pem"):
+    if base_file_exists("account.key") and base_file_exists("dhparam4096.pem"):
+        print("Using cached account.key and dhparam4096.pem")
+    else:
         subprocess.run(singleton_script, shell=True)
 
     gen_key_script = """
@@ -217,8 +229,13 @@ openssl req \
 
     for site, paths in grouped_sites(config):
         print(site)
-        gkey = _templated(gen_key_script, site)
-        subprocess.run(gkey, shell=True, executable="/bin/bash")
+        site_key_file = _templated("<< DOMAIN_NAME >>.key", site)
+        site_csr_file = _templated("<< DOMAIN_NAME >>.csr", site)
+        if base_file_exists(site_key_file) and base_file_exists(site_csr_file):
+            print(f"Using cached {site_key_file} and {site_csr_file}")
+        else:
+            gkey = _templated(gen_key_script, site)
+            subprocess.run(gkey, shell=True, executable="/bin/bash")
 
     curl_cross = "curl https://letsencrypt.org/certs/lets-encrypt-x3-cross-signed.pem -o ./lets-encrypt-x3-cross-signed.pem"
     subprocess.run(curl_cross, shell=True)
@@ -299,7 +316,7 @@ def restart(service):
     os.system("service << >> start")
 
 
-def run_server(filename):
+def run_server(filename, dry_run=False):
     # run all the dockers in a non-ssl env for testing
 
     configdir = os.path.dirname(os.path.realpath(filename))
@@ -315,8 +332,10 @@ def run_server(filename):
     subnet = "172.20.0.0/16"
 
     args = ["docker", "network", "create", "--subnet", subnet, f"cleat_{runname}"]
-    # print(" ".join(args))
-    subprocess.run(args)
+    if dry_run:
+        print(" ".join(args))
+    else:
+        subprocess.run(args)
 
     for url, siteconfig in config.items():
         # run a docker container for each backing server
@@ -347,9 +366,10 @@ def run_server(filename):
                 siteconfig["image"],
             ]
         )
-        # print(" ".join(args))
-
-        subprocess.run(args)
+        if dry_run:
+            print(" ".join(args))
+        else:
+            subprocess.run(args)
 
     args = [
         "docker",
@@ -373,8 +393,10 @@ def run_server(filename):
         "nginx",
     ]
 
-    # print(" ".join(args))
-    subprocess.run(args)
+    if dry_run:
+        print(" ".join(args))
+    else:
+        subprocess.run(args)
 
     print("services running:  stop with\n" f"cleat stop {runname}")
 
