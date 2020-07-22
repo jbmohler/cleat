@@ -25,7 +25,17 @@ def main():
     # run.add_argument("-d", "--dir", required=True, help="configuration directory")
 
     stop = subparsers.add_parser("stop", help="stop the server")
-    stop.add_argument("runname", help="the runname to stop")
+    stop.add_argument("runname", nargs="?", help="the runname to stop")
+    stop.add_argument(
+        "-u",
+        "--unique-running",
+        required=False,
+        default=False,
+        action="store_true",
+        help="stop the single running cleat instance with no confirmation (otherwise ask)",
+    )
+
+    list_cleat = subparsers.add_parser("list", help="list running cleat instances by docker network")
 
     ssl_update = subparsers.add_parser("update-ssl", help="refresh the https from acme")
     ssl_update.add_argument(
@@ -43,6 +53,8 @@ def main():
     elif args.operation == "run":
         core.run_server(args.file, args.dry_run)
     elif args.operation == "stop":
-        core.stop_server(args.runname)
+        core.stop_server(args.runname, unique_running=args.unique_running)
+    elif args.operation == "list":
+        core.list_server()
     elif args.operation == "update-ssl":
         core.refresh_https(args.file)

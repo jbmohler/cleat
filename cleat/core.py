@@ -401,7 +401,63 @@ def run_server(filename, dry_run=False):
     print("services running:  stop with\n" f"cleat stop {runname}")
 
 
-def stop_server(runname):
+def _list_cleat_networks():
+    cmd = [
+        "docker",
+        "network",
+        "list",
+        "--filter",
+        "Name=cleat_*",
+        "--format",
+        "{{.Name}}",
+    ]
+    proc = subprocess.run(cmd, stdout=subprocess.PIPE)
+
+    if proc.returncode:
+        print("Error listing networks", file=sys.stderr)
+        sys.exit(1)
+
+    lines = proc.stdout.decode("utf-8").split("\n")
+    networks = [ll for ll in lines if ll.strip() != ""]
+
+    for network in networks:
+        yield network[6:], network
+
+
+def list_server():
+    for runname, network in _list_cleat_networks():
+        cmd = [
+            "docker",
+            "container",
+            "list",
+            "--filter",
+            f"network={network}",
+            "--format",
+            "{{.ID}}",
+        ]
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE)
+
+        lines = proc.stdout.decode("utf-8").split("\n")
+        print(f"Cleat network:  {runname}\n\t{len(lines)-1} containers")
+
+
+def stop_server(runname=None, unique_running=False):
+    networks = list(_list_cleat_networks())
+    if len(networks) == 1 and runname == None:
+        prompt = f"A single cleat network {networks[0][0]} was found.\nWould you like to stop serving on this network now? [yn]  "
+        if unique_running:
+            answer = "y"
+        else:
+            answer = input(prompt)
+
+        if answer.lower()[0] != "y":
+            sys.exit(1)
+        runname = networks[0][0]
+
+    if runname == None:
+        print("No network given to close.", file=sys.stderr)
+        sys.exit(1)
+
     cmd = f'docker stop `docker ps --filter "label={runname}" -q `'
     # print(cmd)
     subprocess.run(cmd, shell=True)
