@@ -352,10 +352,18 @@ def run_server(filename, dry_run=False):
         for k, v in mountmap.items():
             mounts += ["-v", f"{k}:{v}"]
 
+        user = []
+        usersc = siteconfig.get("user", "current")
+        if usersc == "current":
+            user = ["--user", str(os.getuid())]
+        elif usersc != "root":
+            user = ["--user", usersc]
+
         args = (
             ["docker", "run", "--rm", "-d", "-l", runname]
             + envs
             + mounts
+            + user
             + [
                 "--name",
                 name,

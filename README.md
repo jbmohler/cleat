@@ -19,8 +19,16 @@ https://www.ssllabs.com/ssltest/ .
 * serves only https
 * prefer docker services
 
-Additional minor goals include:
-* optional **mounts** and **environment variables** for your docker containers
+# features included
+
+* optionally specify **mounts**
+* optionally specify **environment variables**
+* use the current user rather than root for the individual images for each site
+  (optionally specify "root" or a specific user with the "user" config option)
+
+# other minor feature still desired
+
+* single site restart command
 * dev/test mode with no ssl
 
 # aspirational usage
@@ -36,11 +44,12 @@ mysite.com:
 mysite.us/app1:
     image: appflask:latest
     port: 5000
-	environment:
-		DBURL: postgresql://user:password@myhost/db
-		CONFIG_VAR1: fast-mode
-	mounts:
-		/path/to/dir: /container/dir
+    user: www
+    environment:
+        DBURL: postgresql://user:password@myhost/db
+        CONFIG_VAR1: fast-mode
+    mounts:
+        /path/to/dir: /container/dir
 ```
 
 Run the server with.
