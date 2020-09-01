@@ -73,7 +73,8 @@ def _templated(template, site, path=None, **kwargs):
 
 
 def grouped_sites(config):
-    domain = lambda url: url.split("/", 1)[0]
+    def domain(url):
+        return url.split("/", 1)[0]
 
     sortlist = sorted(config.items())
     grouped = itertools.groupby(sortlist, key=lambda pair: domain(pair[0]))
@@ -85,7 +86,6 @@ def generate_configuration(filename, ssl=True, plain=False):
 
     with open(filename, "r") as stream:
         config = yaml.safe_load(stream)
-    httpsdir = os.path.join(configdir, GENERATED, "https")
     confdir = os.path.join(configdir, GENERATED, "nginx", "conf.d")
 
     # Original list of conf files, clean up extras after the fact.
@@ -209,7 +209,9 @@ openssl genrsa 4096 > account.key
 openssl dhparam -out dhparam4096.pem 4096
 """
 
-    base_file_exists = lambda fn: os.path.exists(os.path.join(fn))
+    def base_file_exists(fn):
+        return os.path.exists(os.path.join(fn))
+
     if base_file_exists("account.key") and base_file_exists("dhparam4096.pem"):
         print("Using cached account.key and dhparam4096.pem")
     else:
@@ -359,21 +361,24 @@ def run_server(filename, dry_run=False):
         elif usersc != "root":
             user = ["--user", usersc]
 
-        args = (
-            ["docker", "run", "--rm", "-d", "-l", runname]
-            + envs
-            + mounts
-            + user
-            + [
-                "--name",
-                name,
-                "--hostname",
-                name,
-                "--network",
-                f"cleat_{runname}",
-                siteconfig["image"],
-            ]
-        )
+        args = [
+            "docker",
+            "run",
+            "--rm",
+            "-d",
+            "-l",
+            runname,
+            *envs,
+            *mounts,
+            *user,
+            "--name",
+            name,
+            "--hostname",
+            name,
+            "--network",
+            f"cleat_{runname}",
+            siteconfig["image"],
+        ]
         if dry_run:
             print(" ".join(args))
         else:

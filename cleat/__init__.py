@@ -1,4 +1,3 @@
-import os
 import argparse
 from . import core
 
@@ -35,7 +34,7 @@ def main():
         help="stop the single running cleat instance with no confirmation (otherwise ask)",
     )
 
-    list_cleat = subparsers.add_parser("list", help="list running cleat instances by docker network")
+    subparsers.add_parser("list", help="list running cleat instances by docker network")
 
     ssl_update = subparsers.add_parser("update-ssl", help="refresh the https from acme")
     ssl_update.add_argument(
