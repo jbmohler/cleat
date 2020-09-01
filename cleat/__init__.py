@@ -36,6 +36,19 @@ def main():
 
     subparsers.add_parser("list", help="list running cleat instances by docker network")
 
+    instance_restart = subparsers.add_parser(
+        "instance-restart", help="restart a specific instance specified by url"
+    )
+    instance_restart.add_argument(
+        "instance_urls",
+        metavar="instance-urls",
+        nargs="+",
+        help="url indicating instance to restart",
+    )
+    instance_restart.add_argument(
+        "runname", nargs="?", help="the runname of instances to restart"
+    )
+
     ssl_update = subparsers.add_parser("update-ssl", help="refresh the https from acme")
     ssl_update.add_argument(
         "-f", "--file", required=True, help="configuration yaml file"
@@ -53,6 +66,8 @@ def main():
         core.run_server(args.file, args.dry_run)
     elif args.operation == "stop":
         core.stop_server(args.runname, unique_running=args.unique_running)
+    elif args.operation == "instance-restart":
+        core.instance_restart(urls=args.instance_urls, runname=args.runname)
     elif args.operation == "list":
         core.list_server()
     elif args.operation == "update-ssl":

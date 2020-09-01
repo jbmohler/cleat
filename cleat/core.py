@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import re
 import glob
 import random
@@ -318,30 +319,11 @@ def restart(service):
     os.system("service << >> start")
 
 
-def run_server(filename, dry_run=False):
-    # run all the dockers in a non-ssl env for testing
+class RunCommands:
+    def __init__(self, runname):
+        self.runname = runname
 
-    configdir = os.path.dirname(os.path.realpath(filename))
-
-    with open(filename, "r") as stream:
-        config = yaml.safe_load(stream)
-    httpsdir = os.path.join(configdir, GENERATED, "https")
-    confdir = os.path.join(configdir, GENERATED, "nginx", "conf.d")
-
-    alpha = "abcdefghijklmnopqrstuvwxyz0123456789"
-    runname = "".join([random.choice(alpha) for x in range(8)])
-
-    subnet = "172.20.0.0/16"
-
-    args = ["docker", "network", "create", "--subnet", subnet, f"cleat_{runname}"]
-    if dry_run:
-        print(" ".join(args))
-    else:
-        subprocess.run(args)
-
-    for url, siteconfig in config.items():
-        # run a docker container for each backing server
-
+    def instance_container(self, url, siteconfig):
         name = "cleat-" + re.sub("[^a-zA-Z0-9]", "_", url)
 
         envs = []
@@ -367,7 +349,7 @@ def run_server(filename, dry_run=False):
             "--rm",
             "-d",
             "-l",
-            runname,
+            self.runname,
             *envs,
             *mounts,
             *user,
@@ -376,9 +358,49 @@ def run_server(filename, dry_run=False):
             "--hostname",
             name,
             "--network",
-            f"cleat_{runname}",
+            f"cleat_{self.runname}",
             siteconfig["image"],
         ]
+
+        return args
+
+
+def run_server(filename, dry_run=False):
+    # run all the dockers in a non-ssl env for testing
+
+    configdir = os.path.dirname(os.path.realpath(filename))
+
+    with open(filename, "r") as stream:
+        config = yaml.safe_load(stream)
+    httpsdir = os.path.join(configdir, GENERATED, "https")
+    confdir = os.path.join(configdir, GENERATED, "nginx", "conf.d")
+
+    alpha = "abcdefghijklmnopqrstuvwxyz0123456789"
+    runname = "".join([random.choice(alpha) for x in range(8)])
+
+    subnet = "172.20.0.0/16"
+
+    args = [
+        "docker",
+        "network",
+        "create",
+        "--label",
+        f"cleat.configfile={os.path.realpath(filename)}",
+        "--subnet",
+        subnet,
+        f"cleat_{runname}",
+    ]
+    if dry_run:
+        print(" ".join(args))
+    else:
+        subprocess.run(args)
+
+    runc = RunCommands(runname)
+
+    for url, siteconfig in config.items():
+        # run a docker container for each backing server
+        args = runc.instance_container(url, siteconfig)
+
         if dry_run:
             print(" ".join(args))
         else:
@@ -452,6 +474,50 @@ def list_server():
 
         lines = proc.stdout.decode("utf-8").split("\n")
         print(f"Cleat network:  {runname}\n\t{len(lines)-1} containers")
+
+
+def instance_restart(runname, urls):
+    if runname is None:
+        networks = list(_list_cleat_networks())
+        if len(networks) != 1:
+            print("No network given to close.", file=sys.stderr)
+            sys.exit(1)
+        else:
+            runname = networks[0][0]
+
+    cmd = [
+        "docker",
+        "network",
+        "inspect",
+        f"cleat_{runname}",
+    ]
+    proc = subprocess.run(cmd, stdout=subprocess.PIPE)
+    network = json.loads(proc.stdout.decode("utf-8"))
+
+    configfile = network[0]["Labels"].get("cleat.configfile", None)
+
+    if not configfile or not os.path.exists(configfile):
+        raise RuntimeError(f"Configuration directory {configfile} not found.")
+
+    filename = configfile
+    with open(filename, "r") as stream:
+        config = yaml.safe_load(stream)
+
+    runc = RunCommands(runname)
+
+    for url, siteconfig in config.items():
+        if url not in urls:
+            continue
+
+        name = "cleat-" + re.sub("[^a-zA-Z0-9]", "_", url)
+
+        args = ["docker", "stop", name]
+        subprocess.run(args)
+
+        # run a docker container for each backing server
+        args = runc.instance_container(url, siteconfig)
+
+        subprocess.run(args)
 
 
 def stop_server(runname=None, unique_running=False):
