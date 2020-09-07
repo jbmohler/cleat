@@ -3,7 +3,9 @@ from . import core
 
 
 def main():
-    parser = argparse.ArgumentParser(description="cleat: from docker to https")
+    parser = argparse.ArgumentParser(
+        description="cleat: Take your docker containers to https in 60 seconds or less."
+    )
     subparsers = parser.add_subparsers(dest="operation")
 
     setup = subparsers.add_parser(

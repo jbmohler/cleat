@@ -25,13 +25,15 @@ https://www.ssllabs.com/ssltest/ .
 * optionally specify **environment variables**
 * use the current user rather than root for the individual images for each site
   (optionally specify "root" or a specific user with the "user" config option)
-
-# other minor feature still desired
-
 * single site restart command
-* dev/test mode with no ssl
 
-# aspirational usage
+# likely road-map
+
+* dev/test mode with no ssl
+* debian buster compatible init scripts
+* switch nginx for haproxy (should be transparent to config.yaml)
+
+# usage
 
 Define your configuration in one easy config.yaml.
 
@@ -55,25 +57,39 @@ mysite.us/app1:
 Run the server with.
 
 ```sh
-cleat run config.yaml
+cleat run -f config.yaml
 ```
 
 If you want to just prepare the setup.
 
 ```sh
-cleat setup config.yaml
-```
-
-To run a development server.
-
-```sh
-cleat run config.yaml --no-ssh --plain
+cleat setup -f config.yaml
 ```
 
 To update the SSL certificates (from letsencrypt).
 
 ```sh
-cleat update-ssl config.yaml
+cleat update-ssl -f config.yaml
+```
+
+To restart a specific instance
+
+```sh
+cleat instance-restart mysite.us/app1
+```
+
+To stop a running server
+
+```sh
+cleat stop
+```
+
+# aspirational usage
+
+To run a development server.
+
+```sh
+cleat run -f config.yaml --no-ssh --plain
 ```
 
 # implementation sketch
