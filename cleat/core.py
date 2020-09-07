@@ -15,6 +15,10 @@ TEMPLATE_PORT_LISTEN = """\
     server_name << DOMAIN_NAME >>;
 """
 
+TEMPLATE_FORWARD_HTTPS = """\
+    return 301 https://<< DOMAIN_NAME >>$request_uri;
+"""
+
 TEMPLATE_WELLKNOWN_LOCATION = """\
     location /.well-known/ {
         root /usr/share/nginx/<< DOMAIN_NAME >>/;
@@ -98,6 +102,13 @@ def generate_configuration(filename, ssl=True, plain=False):
         port443_server = []
 
         port80_server.append(_templated(TEMPLATE_PORT_LISTEN, site, port_80_443=80))
+        if not plain:
+            port80_server.append(
+                _templated(
+                    TEMPLATE_FORWARD_HTTPS,
+                    site,
+                )
+            )
 
         port443_server.append(
             _templated(TEMPLATE_PORT_LISTEN, site, port_80_443="443 ssl")
