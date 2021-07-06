@@ -44,6 +44,7 @@ TEMPLATE_LOCATION_CHUNK = """\
         proxy_set_header    X-Real-IP $remote_addr;
         proxy_set_header    X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header    X-Forwarded-Proto $scheme;
+        proxy_set_header    X-Original-URI $request_uri;
 
         proxy_pass          http://<< HOSTNAME >>:<< PORT >>;
         << REWRITE >>
@@ -251,7 +252,7 @@ openssl req \
             gkey = _templated(gen_key_script, site)
             subprocess.run(gkey, shell=True, executable="/bin/bash")
 
-    curl_cross = "curl https://letsencrypt.org/certs/lets-encrypt-x3-cross-signed.pem -o ./lets-encrypt-x3-cross-signed.pem"
+    curl_cross = "curl https://letsencrypt.org/certs/lets-encrypt-r3-cross-signed.pem -o ./lets-encrypt-r3-cross-signed.pem"
     subprocess.run(curl_cross, shell=True)
 
 
@@ -295,7 +296,7 @@ python << ACME_DIR >>/acme_tiny.py \
         --csr ./<< DOMAIN_NAME >>.csr \
         --acme-dir << HTTPSDIR >>/<< DOMAIN_NAME >>/.well-known/acme-challenge \
                 > ./signed-<< DOMAIN_NAME >>.crt
-cat signed-<< DOMAIN_NAME >>.crt lets-encrypt-x3-cross-signed.pem > chained-<< DOMAIN_NAME >>.pem
+cat signed-<< DOMAIN_NAME >>.crt lets-encrypt-r3-cross-signed.pem > chained-<< DOMAIN_NAME >>.pem
 """
 
     with open(filename, "r") as stream:
@@ -421,7 +422,7 @@ def run_server(filename, dry_run=False):
         "docker",
         "run",
         "--rm",
-        "-d",
+        "--detach",
         "--name",
         "cleat-nginx-server",
         "-p",
