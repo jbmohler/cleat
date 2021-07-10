@@ -9,9 +9,9 @@ setup(
     author="Joel B. Mohler",
     author_email="jmohler@kiwistrawberry.us",
     url="https://github.com/jbmohler/cleat",
-    entry_points={"console_scripts": ["cleat=cleat:main"]},
-    install_requires=[
-        "PyYAML",
-    ],
+    entry_points={
+        "console_scripts": ["cleat=cleat:main", "cleat-vault=cleat:vault_main"]
+    },
+    install_requires=["cryptography", "PyYAML"],
     packages=["cleat"],
 )

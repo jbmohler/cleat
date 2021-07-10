@@ -1,5 +1,7 @@
+import os
 import argparse
 from . import core
+from . import vault
 
 
 def main():
@@ -74,3 +76,31 @@ def main():
         core.list_server()
     elif args.operation == "update-ssl":
         core.refresh_https(args.file)
+
+
+def vault_main():
+    parser = argparse.ArgumentParser(
+        description="cleat-vault: manage cleat secret vaults"
+    )
+    subparsers = parser.add_subparsers(dest="operation")
+
+    setup = subparsers.add_parser("init", help="initialize a secret vault")
+    setup.add_argument("-f", "--file", required=True, help="configuration yaml file")
+
+    run = subparsers.add_parser("dump", help="print all the secrets in plain text")
+    run.add_argument("-f", "--file", required=True, help="configuration yaml file")
+
+    args = parser.parse_args()
+
+    if args.operation == None:
+        parser.print_help()
+    elif args.operation == "init":
+        with vault.pw_fernet() as f:
+            clvault = os.path.expanduser("~/.cleat/vault")
+            obj = {"pgpass": "oihro3i", "pgurl": "postgresql://jbmohler:laksjdf/mydb"}
+            vault.write_encrypted_content(f, clvault, obj)
+    elif args.operation == "dump":
+        with vault.pw_fernet() as f:
+            clvault = os.path.expanduser("~/.cleat/vault")
+            obj = vault.read_encrypted_content(f, clvault)
+            print(obj)
