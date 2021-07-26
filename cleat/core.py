@@ -7,6 +7,7 @@ import random
 import subprocess
 import itertools
 import yaml
+from . import vault
 
 GENERATED = ".cleat"
 
@@ -332,8 +333,9 @@ def restart(service):
 
 
 class RunCommands:
-    def __init__(self, runname):
+    def __init__(self, runname, vaults):
         self.runname = runname
+        self.vaults = vaults
 
     def instance_container(self, url, siteconfig):
         name = "cleat-" + re.sub("[^a-zA-Z0-9]", "_", url)
@@ -341,6 +343,10 @@ class RunCommands:
         envs = []
         envconfig = siteconfig.get("environment", {})
         for k, v in envconfig.items():
+            vault_re = re.compile(r"\$([a-zA-Z_][a-zA-Z0-9_]):(.*)")
+            m = vault_re.match(v)
+            if m and m.group(1) in self.vaults:
+                v = self.vaults[m.group(1)].get(m.group(2))
             envs += ["-e", f"{k}={v}"]
 
         mounts = []
@@ -407,7 +413,14 @@ def run_server(filename, dry_run=False):
     else:
         subprocess.run(args)
 
-    runc = RunCommands(runname)
+    cfgvaults = config.pop("vault") if "vault" in config else {}
+
+    vaults = vault.VaultManager()
+
+    for vname, vcfg in cfgvaults.items():
+        vaults.add(vname, vcfg)
+
+    runc = RunCommands(runname, vaults)
 
     for url, siteconfig in config.items():
         # run a docker container for each backing server
@@ -515,7 +528,12 @@ def instance_restart(runname, urls):
     with open(filename, "r") as stream:
         config = yaml.safe_load(stream)
 
-    runc = RunCommands(runname)
+    vaults = vault.VaultManager()
+
+    for vname, vcfg in cfgvaults.items():
+        vaults.add(vname, vcfg)
+
+    runc = RunCommands(runname, vaults)
 
     for url, siteconfig in config.items():
         if url not in urls:

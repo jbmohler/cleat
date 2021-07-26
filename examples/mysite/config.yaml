@@ -1,6 +1,16 @@
+vault:
+    default:
+
+    yours:
+        name=yourvault
+
+
 mysite.us:
     image: mysite-static:latest
     port: 8012
+    environment:
+        USERNAME: $vault:server.username
+        PASSWORD: $vault:server.password
 
 mysite.us/flask:
     image: myflask:latest
@@ -9,3 +19,6 @@ mysite.us/flask:
 yoursite.com:
     image: yoursite-static:latest
     port: 8014
+    environment:
+        USERNAME: $yours:server.username
+        PASSWORD: $yours:server.password
