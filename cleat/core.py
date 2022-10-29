@@ -122,7 +122,10 @@ def generate_configuration(filename, ssl=True, plain=False):
             url = path[0]
             domain, basepath = url.split("/", 1) if "/" in url else (url, None)
 
-            if basepath not in [None, ""]:
+            def _truthy(d, key):
+                return d.get(key, True) not in ("false", "0", False)
+
+            if basepath not in [None, ""] and _truthy(path[1], "rewrite_prefix"):
                 rewrite = f"rewrite /{basepath}/(.*) /$1  break;"
             else:
                 rewrite = ""
