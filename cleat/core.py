@@ -266,8 +266,7 @@ def _start_acme_server(confdir, httpsdir):
     args = [
         "docker",
         "run",
-        "--rm",
-        "-d",
+        "--detach",
         "--name",
         "cleat-nginx-server",
         "-p",
@@ -288,6 +287,9 @@ def _start_acme_server(confdir, httpsdir):
 
 def _stop_acme_server(runname):
     cmd = f'docker stop `docker ps --filter "label={runname}" -q `'
+    # print(cmd)
+    subprocess.run(cmd, shell=True)
+    cmd = f'docker container rm `docker ps --all --filter "label={runname}" -q `'
     # print(cmd)
     subprocess.run(cmd, shell=True)
 
@@ -361,8 +363,7 @@ class RunCommands:
         args = [
             "docker",
             "run",
-            "--rm",
-            "-d",
+            "--detach",
             "-l",
             self.runname,
             *envs,
@@ -424,7 +425,6 @@ def run_server(filename, dry_run=False):
     args = [
         "docker",
         "run",
-        "--rm",
         "--detach",
         "--name",
         "cleat-nginx-server",
@@ -555,6 +555,10 @@ def stop_server(runname=None, unique_running=False):
         sys.exit(1)
 
     cmd = f'docker stop `docker ps --filter "label={runname}" -q `'
+    # print(cmd)
+    subprocess.run(cmd, shell=True)
+
+    cmd = f'docker container rm `docker ps --all --filter "label={runname}" -q `'
     # print(cmd)
     subprocess.run(cmd, shell=True)
 
