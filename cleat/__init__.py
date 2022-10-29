@@ -1,3 +1,4 @@
+import sys
 import argparse
 from . import core
 
@@ -48,6 +49,10 @@ def main():
         help="url indicating instance to restart",
     )
     instance_restart.add_argument(
+        "--attached", default=False, action="store_true", required=False,
+        help="do not detach and stream the docker stdout/err to console"
+    )
+    instance_restart.add_argument(
         "runname", nargs="?", help="the runname of instances to restart"
     )
 
@@ -69,7 +74,12 @@ def main():
     elif args.operation == "stop":
         core.stop_server(args.runname, unique_running=args.unique_running)
     elif args.operation == "instance-restart":
-        core.instance_restart(urls=args.instance_urls, runname=args.runname)
+        if len(args.instance_urls) == 0:
+            print("Must supply at least one URL for which to restart container", file=sys.stderr)
+        elif len(args.instance_urls) != 1 and args.attached:
+            print("Can only attach if restarting one url", file=sys.stderr)
+        else:
+            core.instance_restart(urls=args.instance_urls, runname=args.runname, attached=args.attached)
     elif args.operation == "list":
         core.list_server()
     elif args.operation == "update-ssl":

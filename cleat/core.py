@@ -488,7 +488,7 @@ def list_server():
         print(f"Cleat network:  {runname}\n\t{len(lines)-1} containers")
 
 
-def instance_restart(runname, urls):
+def instance_restart(runname, urls, attached=False):
     if runname is None:
         networks = list(_list_cleat_networks())
         if len(networks) != 1:
@@ -528,6 +528,8 @@ def instance_restart(runname, urls):
 
         # run a docker container for each backing server
         args = runc.instance_container(url, siteconfig)
+        if attached:
+            args = [a for a in args if a != "--detach"]
 
         subprocess.run(args)
 
