@@ -250,6 +250,14 @@ openssl req \
         > << DOMAIN_NAME >>.csr
 """
 
+    self_sign_script = """
+openssl x509 \
+        -req -days 365 -in << DOMAIN_NAME >>.csr \
+        -signkey << DOMAIN_NAME >>.key \
+        -out << DOMAIN_NAME >>.crt
+cat << DOMAIN_NAME >>.key << DOMAIN_NAME >>.crt > chained-<< DOMAIN_NAME >>.pem
+"""
+
     for site, paths in grouped_sites(config):
         print(site)
         site_key_file = _templated("<< DOMAIN_NAME >>.key", site)
@@ -259,6 +267,13 @@ openssl req \
         else:
             gkey = _templated(gen_key_script, site)
             subprocess.run(gkey, shell=True, executable="/bin/bash")
+
+        chained_pem_file = _templated("chained-<< DOMAIN_NAME >>.pem", site)
+        if base_file_exists(chained_pem_file):
+            print(f"Using cached or acme acquired {chained_pem_file}")
+        else:
+            ssign = _templated(self_sign_script, site)
+            subprocess.run(ssign, shell=True, executable="/bin/bash")
 
     curl_cross = "curl https://letsencrypt.org/certs/lets-encrypt-r3-cross-signed.pem -o ./lets-encrypt-r3-cross-signed.pem"
     subprocess.run(curl_cross, shell=True)
