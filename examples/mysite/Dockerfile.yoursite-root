@@ -1,11 +1,7 @@
-FROM alpine:3.11
-
-RUN apk --no-cache add thttpd
+FROM python:latest
 
 WORKDIR /var/www/http
 COPY yoursite-root /var/www/http
 
 EXPOSE 8014
-
-ENTRYPOINT ["/usr/sbin/thttpd"]
-CMD ["-D", "-p", "8014", "-l", "/dev/stderr", "-d", "/var/www/http"]
+CMD python -m http.server 8014
