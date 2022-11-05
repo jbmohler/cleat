@@ -15,8 +15,10 @@ TEMPLATE_PORT_LISTEN = """\
     server_name << DOMAIN_NAME >>;
 """
 
-TEMPLATE_FORWARD_HTTPS = """\
-    return 301 https://<< DOMAIN_NAME >>$request_uri;
+TEMPLATE_LOCATION_REDIR_HTTPS = """\
+    location /<< LOCATION >> {
+        return 301 https://<< DOMAIN_NAME >>$request_uri;
+    }
 """
 
 TEMPLATE_WELLKNOWN_LOCATION = """\
@@ -103,13 +105,7 @@ def generate_configuration(filename, ssl=True, plain=False):
         port443_server = []
 
         port80_server.append(_templated(TEMPLATE_PORT_LISTEN, site, port_80_443=80))
-        if not plain:
-            port80_server.append(
-                _templated(
-                    TEMPLATE_FORWARD_HTTPS,
-                    site,
-                )
-            )
+        port80_server.append(_templated(TEMPLATE_WELLKNOWN_LOCATION, site))
 
         port443_server.append(
             _templated(TEMPLATE_PORT_LISTEN, site, port_80_443="443 ssl")
@@ -138,6 +134,15 @@ def generate_configuration(filename, ssl=True, plain=False):
                         path=path,
                         hostname=hostname,
                         rewrite=rewrite,
+                    )
+                )
+            else:
+                port80_server.append(
+                    _templated(
+                        TEMPLATE_LOCATION_REDIR_HTTPS,
+                        site,
+                        path=path,
+                        hostname=hostname,
                     )
                 )
             port443_server.append(
@@ -308,7 +313,6 @@ cat signed-<< DOMAIN_NAME >>.crt lets-encrypt-r3-cross-signed.pem > chained-<< D
         config = yaml.safe_load(stream)
     configdir = os.path.dirname(os.path.realpath(filename))
     httpsdir = os.path.join(configdir, GENERATED, "https")
-    confdir = os.path.join(configdir, GENERATED, "nginx-acme")
 
     x1 = os.path.abspath(__file__)
     x2 = os.path.dirname(x1)
@@ -319,8 +323,6 @@ cat signed-<< DOMAIN_NAME >>.crt lets-encrypt-r3-cross-signed.pem > chained-<< D
         os.mkdir(httpsdir)
     os.chdir(httpsdir)
 
-    runname = _start_acme_server(confdir, httpsdir)
-
     for site, paths in grouped_sites(config):
         well_known = os.path.join(httpsdir, site, ".well-known", "acme-challenge")
         if not os.path.exists(well_known):
@@ -328,7 +330,8 @@ cat signed-<< DOMAIN_NAME >>.crt lets-encrypt-r3-cross-signed.pem > chained-<< D
         gkey = _templated(re_up_script, site, acme_dir=acmedir, httpsdir=httpsdir)
         subprocess.run(gkey, shell=True)
 
-    _stop_acme_server(runname)
+    print("Reloading nginx configuration files")
+    subprocess.run("docker exec cleat-nginx-server nginx -s reload", shell=True)
 
 
 def restart(service):
@@ -440,6 +443,8 @@ def run_server(filename, dry_run=False):
         f"{httpsdir}:/etc/nginx/cleat",
         "-v",
         f"{confdir}:/etc/nginx/conf.d",
+        "-v",
+        f"{httpsdir}:/usr/share/nginx/",
         "nginx",
     ]
 

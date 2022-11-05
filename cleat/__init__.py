@@ -49,8 +49,11 @@ def main():
         help="url indicating instance to restart",
     )
     instance_restart.add_argument(
-        "--attached", default=False, action="store_true", required=False,
-        help="do not detach and stream the docker stdout/err to console"
+        "--attached",
+        default=False,
+        action="store_true",
+        required=False,
+        help="do not detach and stream the docker stdout/err to console",
     )
     instance_restart.add_argument(
         "runname", nargs="?", help="the runname of instances to restart"
@@ -67,7 +70,7 @@ def main():
         parser.print_help()
     elif args.operation == "setup":
         core.generate_configuration(args.file, ssl=True, plain=False)
-        core.generate_configuration_acme(args.file)
+        # core.generate_configuration_acme(args.file)
         core.initialize_https(args.file)
     elif args.operation == "run":
         core.run_server(args.file, args.dry_run)
@@ -75,11 +78,16 @@ def main():
         core.stop_server(args.runname, unique_running=args.unique_running)
     elif args.operation == "instance-restart":
         if len(args.instance_urls) == 0:
-            print("Must supply at least one URL for which to restart container", file=sys.stderr)
+            print(
+                "Must supply at least one URL for which to restart container",
+                file=sys.stderr,
+            )
         elif len(args.instance_urls) != 1 and args.attached:
             print("Can only attach if restarting one url", file=sys.stderr)
         else:
-            core.instance_restart(urls=args.instance_urls, runname=args.runname, attached=args.attached)
+            core.instance_restart(
+                urls=args.instance_urls, runname=args.runname, attached=args.attached
+            )
     elif args.operation == "list":
         core.list_server()
     elif args.operation == "update-ssl":
