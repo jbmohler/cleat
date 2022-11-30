@@ -549,6 +549,9 @@ def instance_restart(runname, urls, attached=False):
         args = ["docker", "stop", name]
         subprocess.run(args)
 
+        args = ["docker", "rm", name]
+        subprocess.run(args)
+
         # run a docker container for each backing server
         args = runc.instance_container(url, siteconfig)
         if attached:
