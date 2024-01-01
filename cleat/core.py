@@ -114,7 +114,7 @@ def generate_configuration(filename, ssl=True, plain=False):
         port80_server.append(_templated(TEMPLATE_WELLKNOWN_LOCATION, site))
 
         port443_server.append(
-            _templated(TEMPLATE_PORT_LISTEN, site, port_80_443="443 ssl")
+            _templated(TEMPLATE_PORT_LISTEN, site, port_80_443="443 ssl http2")
         )
         port443_server.append(_templated(TEMPLATE_SSL_CONFIG, site))
 
