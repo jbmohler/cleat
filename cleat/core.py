@@ -281,9 +281,6 @@ cat << DOMAIN_NAME >>.key << DOMAIN_NAME >>.crt > chained-<< DOMAIN_NAME >>.pem
             ssign = _templated(self_sign_script, site)
             subprocess.run(ssign, shell=True, executable="/bin/bash")
 
-    curl_cross = "curl https://letsencrypt.org/certs/lets-encrypt-r3-cross-signed.pem -o ./lets-encrypt-r3-cross-signed.pem"
-    subprocess.run(curl_cross, shell=True)
-
 
 def _start_acme_server(confdir, httpsdir):
     alpha = "abcdefghijklmnopqrstuvwxyz0123456789"
@@ -327,7 +324,7 @@ python << ACME_DIR >>/acme_tiny.py \
         --csr ./<< DOMAIN_NAME >>.csr \
         --acme-dir << HTTPSDIR >>/<< DOMAIN_NAME >>/.well-known/acme-challenge \
                 > ./signed-<< DOMAIN_NAME >>.crt
-cat signed-<< DOMAIN_NAME >>.crt lets-encrypt-r3-cross-signed.pem > chained-<< DOMAIN_NAME >>.pem
+cp signed-<< DOMAIN_NAME >>.crt chained-<< DOMAIN_NAME >>.pem
 """
 
     with open(filename, "r") as stream:
