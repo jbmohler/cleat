@@ -47,6 +47,12 @@ TEMPLATE_LOCATION_CHUNK = """\
         proxy_set_header    X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header    X-Forwarded-Proto $scheme;
         proxy_set_header    X-Original-URI $request_uri;
+        # https://stackoverflow.com/questions/13672743/eventsource-server-sent-events-through-nginx
+        proxy_set_header Connection '';
+        proxy_cache_bypass $http_upgrade;
+        proxy_buffering off;
+        proxy_cache off;
+        chunked_transfer_encoding off;
 
         proxy_pass          http://<< HOSTNAME >>:<< PORT >>;
         << REWRITE >>
