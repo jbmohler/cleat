@@ -12,6 +12,7 @@ GENERATED = ".cleat"
 
 TEMPLATE_PORT_LISTEN = """\
     listen << PORT_80_443 >>;
+    http2 << HTTP2 >>;
     server_name << DOMAIN_NAME >>;
 """
 
@@ -110,11 +111,13 @@ def generate_configuration(filename, ssl=True, plain=False):
         port80_server = []
         port443_server = []
 
-        port80_server.append(_templated(TEMPLATE_PORT_LISTEN, site, port_80_443=80))
+        port80_server.append(
+            _templated(TEMPLATE_PORT_LISTEN, site, port_80_443=80, http2="off")
+        )
         port80_server.append(_templated(TEMPLATE_WELLKNOWN_LOCATION, site))
 
         port443_server.append(
-            _templated(TEMPLATE_PORT_LISTEN, site, port_80_443="443 ssl http2")
+            _templated(TEMPLATE_PORT_LISTEN, site, port_80_443="443 ssl", http2="on")
         )
         port443_server.append(_templated(TEMPLATE_SSL_CONFIG, site))
 
@@ -187,7 +190,9 @@ def generate_configuration_acme(filename):
     for site, paths in grouped_sites(config):
         port80_server = []
 
-        port80_server.append(_templated(TEMPLATE_PORT_LISTEN, site, port_80_443=80))
+        port80_server.append(
+            _templated(TEMPLATE_PORT_LISTEN, site, port_80_443=80, http2="off")
+        )
         port80_server.append(_templated(TEMPLATE_WELLKNOWN_LOCATION, site))
 
         port80_server = ["server {"] + port80_server + ["}\n"]
